@@ -42,16 +42,22 @@ class BatteryCell:
 
     def get_ocv(self):
         soc = self.soc
-        return (
-            self.config.v_min
-            + (self.config.v_max - self.config.v_min)
-            + ((3.5 * soc**3) - (6.5 * soc**2) + (4.0 * soc))
+        return self.config.v_min + (self.config.v_max - self.config.v_min) * (
+            (3.5 * soc**3) - (6.5 * soc**2) + (4.0 * soc)
         )
 
     def update(self, current, dt=1.0):
         # current is positive for charging, negative for discharging.
         # Time step is 1.0 seconds by default
         self.current = current
+
+        # update battery state
+        if current > 0.1:
+            self.state = BatteryState.CHARGING
+        elif current < -0.1:
+            self.state = BatteryState.DISCHARGING
+        else:
+            self.state = BatteryState.IDLE
 
         # Update current across RC pair
         dv_rc = (current / self.config.c1) - (
