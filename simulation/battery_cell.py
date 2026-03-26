@@ -69,7 +69,7 @@ class BatteryCell:
         voltage = self.get_ocv() - (current * self.config.r0) - self.v_rc
 
         # Update SOC from current
-        self.soc -= (current * dt) / (self.config.capacity_ah * 3600)
+        self.soc += (current * dt) / (self.config.capacity_ah * 3600)
         self.soc = max(
             0.0, min(1.0, self.soc)
         )  # Check that the SOC is in bounds (0.0 - 1.0)
