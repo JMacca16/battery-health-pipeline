@@ -1,4 +1,5 @@
 import random
+import time
 from enum import Enum
 
 
@@ -50,6 +51,7 @@ class BatteryCell:
     def update(self, current, dt=1.0):
         # current is positive for charging, negative for discharging.
         # Time step is 1.0 seconds by default
+        self.current = current
 
         # Update current across RC pair
         dv_rc = (current / self.config.c1) - (
@@ -75,3 +77,22 @@ class BatteryCell:
         # Add gaussian sensor noise
         voltage += random.gauss(0, 0.005)
         self.temperature += random.gauss(0, 0.1)
+
+    def get_reading(self):
+        return {
+            "timestamp": time.time(),
+            "battery_id": self.cell_id,
+            "voltage": round(
+                (self.get_ocv() - (self.current * self.config.r0) - self.v_rc), 4
+            ),
+            "current": round(self.current, 4),
+            "temperature": round(self.temperature, 4),
+            "soc": round(self.soc, 4),
+            "soh": round(self.soh, 4),
+            "nominal_capacity": self.config.capacity_ah,
+            "available capacity": round((self.config.capacity_ah * self.soc), 4),
+            "internal resistance": round(self.config.r0, 4),
+            "cycle count": self.cycle_count,
+            "state": self.state.value,
+            "anomaly": self.is_anomaly,
+        }
