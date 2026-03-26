@@ -1,0 +1,31 @@
+# Virtual environment
+.venv/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+
+# Secrets
+.env
+
+# PyCharm
+.idea/
+
+# Test coverage
+.coverage
+.pytest_cache/
+
+# ML models (too large for git)
+models/
+*.pkl
+*.pt
+
+# Logs
+*.log
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
