@@ -66,7 +66,7 @@ class BatteryCell:
         self.v_rc += dv_rc * dt
 
         # Calculate terminal voltage
-        voltage = self.get_ocv() - (current * self.config.r0) - self.v_rc
+        self.voltage = self.get_ocv() + (current * self.config.r0) - self.v_rc
 
         # Update SOC from current
         self.soc += (current * dt) / (self.config.capacity_ah * 3600)
@@ -81,16 +81,14 @@ class BatteryCell:
         )
 
         # Add gaussian sensor noise
-        voltage += random.gauss(0, 0.005)
+        self.voltage += random.gauss(0, 0.005)
         self.temperature += random.gauss(0, 0.1)
 
     def get_reading(self):
         return {
             "timestamp": time.time(),
             "battery_id": self.cell_id,
-            "voltage": round(
-                (self.get_ocv() - (self.current * self.config.r0) - self.v_rc), 4
-            ),
+            "voltage": round(self.voltage, 4),
             "current": round(self.current, 4),
             "temperature": round(self.temperature, 4),
             "soc": round(self.soc, 4),
