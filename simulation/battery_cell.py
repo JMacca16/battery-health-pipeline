@@ -9,13 +9,12 @@ class BatteryState(Enum):
     DISCHARGING = "discharging"
     FAULT = "fault"
 
-
 class BatteryCellConfig:
     def __init__(self):
         self.capacity_ah = 50.0
-        self.r0 = 0.01
-        self.r1 = 0.02
-        self.c1 = 2000.0
+        self.r0 = 0.0015
+        self.r1 = 0.001
+        self.c1 = 3000.0
         self.v_max = 4.2
         self.v_min = 2.5
         self.temp_nominal = 25.0
@@ -36,6 +35,8 @@ class BatteryCell:
         self.temperature = self.config.temp_nominal
         self.state = BatteryState.IDLE
         self.cycle_count = 0
+        self.r_short = 0
+        self.short_current = 0.0
 
         # Flags
         self.is_anomaly = False
@@ -49,15 +50,13 @@ class BatteryCell:
     def update(self, current, dt=1.0):
         # current is positive for charging, negative for discharging.
         # Time step is 1.0 seconds by default
-        self.current = current
+        self.steady_state_current = current
 
-        # update battery state
-        if current > 0.1:
-            self.state = BatteryState.CHARGING
-        elif current < -0.1:
-            self.state = BatteryState.DISCHARGING
-        else:
-            self.state = BatteryState.IDLE
+        # Caclulate short circuit current
+        if self.r_short != 0.0:
+            self.short_current = self.get_ocv() / self.r_short
+
+        total_current = current + self.short_current
 
         # Update current across RC pair
         dv_rc = (current / self.config.c1) - (
@@ -66,17 +65,24 @@ class BatteryCell:
         self.v_rc += dv_rc * dt
 
         # Calculate terminal voltage
-        self.voltage = self.get_ocv() + (current * self.config.r0) - self.v_rc
+        v_no_short = self.get_ocv() + (current * self.config.r0) + self.v_rc
+
+        if self.r_short != 0:
+            self.voltage = v_no_short / (1 + self.config.r0 / self.r_short)
+            self.short_current = self.voltage / self.r_short
+        else:
+            self.voltage = v_no_short
+            self.short_current = 0.0
 
         # Update SOC from current
-        self.soc += (current * dt) / (self.config.capacity_ah * 3600)
+        self.soc += (total_current * dt) / (self.config.capacity_ah * 3600)
         self.soc = max(
             0.0, min(1.0, self.soc)
         )  # Check that the SOC is in bounds (0.0 - 1.0)
 
         # Calculate temperature
-        heating_power = (current**2) * self.config.r0
-        self.temperature += (heating_power * 0.01) - (
+        self.heating_power = ((current**2) * self.config.r0) + ((self.short_current**2) * self.r_short)
+        self.temperature += (self.heating_power * 0.01) - (
             0.005 * (self.temperature - self.config.temp_nominal)
         )
 
@@ -89,8 +95,9 @@ class BatteryCell:
             "timestamp": time.time(),
             "battery_id": self.cell_id,
             "voltage": round(self.voltage, 4),
-            "current": round(self.current, 4),
+            "current": round(self.steady_state_current, 4),
             "temperature": round(self.temperature, 4),
+            "heating power": round(self.heating_power, 4),
             "soc": round(self.soc, 4),
             "soh": round(self.soh, 4),
             "nominal_capacity": self.config.capacity_ah,
@@ -100,3 +107,9 @@ class BatteryCell:
             "state": self.state.value,
             "anomaly": self.is_anomaly,
         }
+
+    def inject_anomaly(self, anomaly_type):
+        if anomaly_type == "internal short":
+            self.r_short = 0.2
+            self.is_anomaly = True
+            self.state = BatteryState.FAULT
