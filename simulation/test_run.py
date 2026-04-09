@@ -1,14 +1,9 @@
-from simulation.battery_cell import BatteryCell
+from battery_pack import BatteryPack
 
-cell = BatteryCell("CELL_001")
+pack = BatteryPack("PACK_01", num_series=4, num_parallel=1)
 
-print("Simulating 10 second discharge at 10A...\n")
-
-
-cell = BatteryCell("CELL_001")
-for i in range(10):
-    if i == 5:
-        cell.inject_anomaly("internal short")
-    cell.update(current=-10.0)
-    reading = cell.get_reading()
-    print(f"t={i+1}s | voltage={reading['voltage']}V | temp={reading['temperature']}°C | anomaly={reading['anomaly']}")
+for i in range(10000):
+    pack.update()
+    if i % 100 == 0:
+        reading = pack.get_reading()
+        print(f"t={i}s | voltage={reading['pack_voltage']}V | state={reading['state']} | cycles={reading['cycle_count']}")
